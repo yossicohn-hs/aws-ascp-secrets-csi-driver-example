@@ -1,0 +1,39 @@
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-deployment
+spec:
+  serviceAccountName: nginx-deployment-sa
+  containers:
+  - image: nginx
+    name: nginx
+    imagePullPolicy: Never
+    env:
+      - name: API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: my-aws-secret
+            key: my-secret
+      - name: MY_SSM
+        valueFrom:
+          secretKeyRef:
+            name: my-aws-secret
+            key: "OTEL_EXPORTER"
+      - name: MY_SECRET2
+        valueFrom:
+          secretKeyRef:
+            name: my-aws-secret
+            key: "my-secret2"
+    volumeMounts:
+    - name: secrets-store-inline
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+  volumes:
+  - name: secrets-store-inline
+    csi:
+      driver: secrets-store.csi.k8s.io
+      readOnly: true
+      volumeAttributes:
+        secretProviderClass: "aws-secrets"
+      
