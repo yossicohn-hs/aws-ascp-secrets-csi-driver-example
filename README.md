@@ -378,3 +378,114 @@ spec:
 ```
 # aws-ascp-secrets-csi-driver-example
 # aws-ascp-secrets-csi-driver-example
+
+
+
+# Exampl for adding propper secret types
+```
+apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+kind: SecretProviderClass
+metadata:
+  name: vault-database
+spec:
+  provider: vault
+  secretObjects:  
+    - data:
+      - key: db-password
+        objectName: "db-password"
+      secretName: db-secret
+      type: Opaque
+    - data:
+      - key: ssh-privatekey
+        objectName: "db-password"
+      - key: config
+        objectName: "db-password"
+      - key: known_hosts
+        objectName: "db-password"
+      secretName: db-secret-x
+      type: kubernetes.io/ssh-auth    
+  parameters:
+    vaultAddress: "http://vault.default:8200"
+    roleName: "database"
+    objects: |
+      - objectName: "db-password"
+        secretPath: "secret/data/db-pass"
+        secretKey: "password"
+``` 
+
+## POD Usage
+
+**We can see the usage of Environment values for the Created Secret**
+```
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: webapp-sa
+secrets:
+  - name: db-secret
+  - name: db-secret-x
+---
+kind: Pod
+apiVersion: v1
+metadata:
+  name: webapp
+spec:
+  serviceAccountName: webapp-sa
+  containers:
+  - image: jweissig/app:0.0.1
+    name: webapp
+    volumeMounts:
+    - name: secrets-store-inline
+      mountPath: "/mnt/secrets-store"
+      readOnly: true
+    env:
+    - name: SECRET_DB_NAME
+      valueFrom:
+        secretKeyRef:
+          name: db-secret-x
+          key: config
+  volumes:
+    - name: secrets-store-inline
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: "vault-database"
+
+```
+
+For the Tekton we would need to add annotation for the Secret 
+for:
+```
+ annotations:
+            tekton.dev/git-0: github.com
+```
+
+We can do that easiliy with the ```kubectl annotate```
+
+```
+kubectl annotate secret db-secret-x tekton.dev/git-0=github.com
+```
+
+Then we will get the final secret
+```
+apiVersion: v1
+data:
+  config: <base64 secret>
+  known_hosts: <base64 secret>
+  ssh-privatekey: <base64 secret>
+kind: Secret
+metadata:
+  annotations:
+    tekton.dev/git-0: github.com
+  creationTimestamp: "2021-06-08T18:46:59Z"
+  labels:
+    secrets-store.csi.k8s.io/managed: "true"
+  name: db-secret-x
+  namespace: default
+  ownerReferences:
+  - apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
+    kind: SecretProviderClassPodStatus
+    name: webapp-default-vault-database
+type: kubernetes.io/ssh-auth
+```
