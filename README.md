@@ -377,11 +377,9 @@ spec:
         secretName: my-aws-secret
 ```
 # aws-ascp-secrets-csi-driver-example
-# aws-ascp-secrets-csi-driver-example
 
 
-
-# Exampl for adding propper secret types
+## Exampl for adding propper secret types
 ```
 apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
 kind: SecretProviderClass
